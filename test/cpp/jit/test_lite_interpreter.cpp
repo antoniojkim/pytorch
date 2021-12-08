@@ -1515,8 +1515,8 @@ TEST(LiteInterpreterTest, OperatorSize1) {
   mobile::Module bc = _load_for_mobile(ss);
   const auto& func = bc.get_method("forward").function();
   ASSERT_EQ(
-      func.get_code()->operator_input_sizes_.size(),
-      func.get_code()->operators_.size());
+      func.get_code().operator_input_sizes_.size(),
+      func.get_code().operators_.size());
 }
 
 TEST(LiteInterpreterTest, OperatorTest2) { // NOLINT (use =delete in gtest)
@@ -1550,8 +1550,8 @@ TEST(LiteInterpreterTest, OperatorTest2) { // NOLINT (use =delete in gtest)
     mobile::Module bc = _load_for_mobile(ss);
     const auto& func = bc.get_method("test_func").function();
     ASSERT_EQ(
-        func.get_code()->operator_input_sizes_.size(),
-        func.get_code()->operators_.size());
+        func.get_code().operator_input_sizes_.size(),
+        func.get_code().operators_.size());
   }
 }
 
