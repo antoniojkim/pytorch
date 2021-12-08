@@ -2,6 +2,7 @@
 #include <ATen/detail/CUDAHooksInterface.h>
 #include <c10/util/env.h>
 #include <c10/util/irange.h>
+#include <c10/util/variant.h>
 
 namespace at { namespace native {
 
@@ -62,10 +63,13 @@ enum class ConvBackend {
 
 // Function to select the convolution backend based on the inputs and params.
 // This overload is used within the convolution internals but not exposed to python.
+// NB: The forward pass provides a bias tensor while the backward pass provides
+// a bool indicating whether the bias is defined. This is done to save memory by
+// avoiding saving the full bias tensor for backward.
 TORCH_API ConvBackend select_conv_backend(
     const Tensor& input,
     const Tensor& weight,
-    const Tensor& bias,
+    const c10::variant<Tensor, bool> bias_or_bias_defined,
     const ConvParams& params);
 
 // Overload for selecting the convolution backend from the full set of convolution inputs.
