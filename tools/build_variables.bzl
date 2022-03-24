@@ -419,6 +419,7 @@ core_sources_full = core_sources_full_mobile + [
 ]
 
 lazy_tensor_core_sources = [
+    "torch/csrc/lazy/backend/config.cpp",
     "torch/csrc/lazy/backend/backend_device.cpp",
     "torch/csrc/lazy/backend/backend_interface.cpp",
     "torch/csrc/lazy/backend/lowering_context.cpp",
@@ -426,6 +427,8 @@ lazy_tensor_core_sources = [
     "torch/csrc/lazy/core/debug_util.cpp",
     "torch/csrc/lazy/core/hash.cpp",
     "torch/csrc/lazy/core/helpers.cpp",
+    "torch/csrc/lazy/core/internal_ops/cast.cpp",
+    "torch/csrc/lazy/core/internal_ops/device_data.cpp",
     "torch/csrc/lazy/core/ir.cpp",
     "torch/csrc/lazy/core/ir_dump_util.cpp",
     "torch/csrc/lazy/core/ir_metadata.cpp",
@@ -434,10 +437,17 @@ lazy_tensor_core_sources = [
     "torch/csrc/lazy/core/lazy_view.cpp",
     "torch/csrc/lazy/core/metrics.cpp",
     "torch/csrc/lazy/core/multi_wait.cpp",
+    "torch/csrc/lazy/core/ops/arithmetic_ir_ops.cpp",
+    "torch/csrc/lazy/core/ops/batch_norm_ops.cpp",
+    "torch/csrc/lazy/core/ops/expand.cpp",
+    "torch/csrc/lazy/core/ops/generic.cpp",
+    "torch/csrc/lazy/core/ops/scalar.cpp",
     "torch/csrc/lazy/core/permutation_util.cpp",
     "torch/csrc/lazy/core/shape.cpp",
     "torch/csrc/lazy/core/shape_inference.cpp",
     "torch/csrc/lazy/core/tensor.cpp",
+    "torch/csrc/lazy/core/tensor_aten_ops.cpp",
+    "torch/csrc/lazy/core/tensor_list.cpp",
     "torch/csrc/lazy/core/tensor_impl.cpp",
     "torch/csrc/lazy/core/tensor_util.cpp",
     "torch/csrc/lazy/core/thread_pool.cpp",
@@ -454,31 +464,19 @@ lazy_tensor_core_sources = [
     "torch/csrc/lazy/core/view_ops/unsqueeze.cpp",
     "torch/csrc/lazy/core/view_ops/select_view_update.cpp",
     "torch/csrc/lazy/core/view_ops/view.cpp",
-    # We should better segment the sources, but for now there are actually dependencies
-    # from some core files on some of these ts_backend files
-    # so we continue to build these parts of ts_backend in all build configs
-    "torch/csrc/lazy/ts_backend/config.cpp",
-    "torch/csrc/lazy/ts_backend/ops/arithmetic_ir_ops.cpp",
-    "torch/csrc/lazy/ts_backend/ops/cast.cpp",
-    "torch/csrc/lazy/ts_backend/ops/device_data.cpp",
-    "torch/csrc/lazy/ts_backend/ops/expand.cpp",
-    "torch/csrc/lazy/ts_backend/ops/generic.cpp",
-    "torch/csrc/lazy/ts_backend/ops/scalar.cpp",
-    "torch/csrc/lazy/ts_backend/ts_node.cpp",
 ]
 
 # We can't build all of the ts backend under certain build configurations, e.g. mobile,
 # since it depends on things like autograd, meta functions, which may be disabled
 lazy_tensor_ts_sources = [
-    "torch/csrc/lazy/ts_backend/ops/batch_norm_ops.cpp",
     "torch/csrc/lazy/ts_backend/ops/random_ops.cpp",
     "torch/csrc/lazy/ts_backend/dynamic_ir.cpp",
     "torch/csrc/lazy/ts_backend/ts_autograd_functions.cpp",
     "torch/csrc/lazy/ts_backend/ts_backend_impl.cpp",
     "torch/csrc/lazy/ts_backend/ts_lowering_context.cpp",
     "torch/csrc/lazy/ts_backend/ts_native_functions.cpp",
+    "torch/csrc/lazy/ts_backend/ts_node.cpp",
     "torch/csrc/lazy/ts_backend/ts_node_lowering.cpp",
-    "torch/csrc/lazy/ts_backend/tensor_aten_ops.cpp",
     "torch/csrc/lazy/ts_backend/ts_eager_fallback.cpp",
 ]
 

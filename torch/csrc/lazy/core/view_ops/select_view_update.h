@@ -1,11 +1,11 @@
 #pragma once
 
-#include <torch/csrc/lazy/ts_backend/ts_node.h>
+#include <torch/csrc/lazy/core/ir.h>
 
 namespace torch {
 namespace lazy {
 
-class TORCH_API SelectViewUpdate : public TsNode {
+class TORCH_API SelectViewUpdate : public Node {
  public:
   SelectViewUpdate(
       const Value& target,

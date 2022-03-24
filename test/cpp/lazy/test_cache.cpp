@@ -68,7 +68,7 @@ TEST(CacheTest, BasicTest) {
 class CacheNodeWithShape : public TsNode {
  public:
   explicit CacheNodeWithShape(const Shape& shape)
-      : TsNode(OpKind(), shape, /* num_outputs */ 1, /* seed */ 0){}
+      : TsNode(OpKind(), shape, /* num_outputs */ 1, /* seed */ 0) {}
 };
 
 TEST(CacheTest, ShapeCacheTestForDynamicShape) {

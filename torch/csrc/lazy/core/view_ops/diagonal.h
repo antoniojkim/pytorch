@@ -1,11 +1,11 @@
 #pragma once
 
-#include <torch/csrc/lazy/ts_backend/ts_node.h>
+#include <torch/csrc/lazy/core/ir.h>
 
 namespace torch {
 namespace lazy {
 
-class TORCH_API Diagonal : public TsNode {
+class TORCH_API Diagonal : public Node {
  public:
   Diagonal(const Value& input, int64_t offset, int64_t dim1, int64_t dim2);
 

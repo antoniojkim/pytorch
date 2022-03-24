@@ -5,13 +5,14 @@
 #include <torch/csrc/jit/jit_log.h>
 #include <torch/csrc/lazy/backend/backend_interface.h>
 #include <torch/csrc/lazy/core/helpers.h>
-#include <torch/csrc/lazy/ts_backend/ops/cast.h>
-#include <torch/csrc/lazy/ts_backend/ops/device_data.h>
-#include <torch/csrc/lazy/ts_backend/ops/expand.h>
+#include <torch/csrc/lazy/core/internal_ops/device_data.h>
 #include <torch/csrc/lazy/core/internal_ops/ltc_ops.h>
-#include <torch/csrc/lazy/ts_backend/ops/scalar.h>
-#include <torch/csrc/lazy/ts_backend/ops/batch_norm_ops.h>
+#include <torch/csrc/lazy/core/internal_ops/cast.h>
+#include <torch/csrc/lazy/core/ops/expand.h>
+#include <torch/csrc/lazy/core/ops/scalar.h>
+#include <torch/csrc/lazy/core/ops/batch_norm_ops.h>
 #include <torch/csrc/lazy/core/permutation_util.h>
+#include <torch/csrc/lazy/core/tensor_list.h>
 #include <torch/csrc/lazy/core/view_ops/as_strided.h>
 #include <torch/csrc/lazy/core/view_ops/as_strided_view_update.h>
 #include <torch/csrc/lazy/core/view_ops/diagonal.h>
@@ -41,26 +42,39 @@ class TSNodeLowering : public TSNodeLoweringInterface {
   torch::lazy::TSLoweringContext* loctx() { return loctx_; }
 
   bool Lower(const torch::lazy::Node* node) override {
+    TSOpVector ops;
     if (auto* tsnode = dynamic_cast<const torch::lazy::TsNode*>(node)) {
       // First, we call the node lowering function, which exists for newly
       // codegenned or refactored nodes
-      TSOpVector ops = tsnode->Lower(function_, loctx());
-      if (ops.empty()) {
-        // Then fall back to legacy lowering code, which should be gradually
-        // removed
-        ops = LowerNonCodegenOps(node);
-      }
-      if (ops.empty()) {
-        return false;
-      }
-      CHECK_EQ(node->num_outputs(), ops.size());
-      for (size_t i = 0; i < ops.size(); ++i) {
-        loctx()->AssignOutputOp(torch::lazy::Output(node, i), ops[i]);
-      }
-      return true;
+      ops = tsnode->Lower(function_, loctx());
+    } else if (auto* tensor_list = dynamic_cast<const torch::lazy::TensorList*>(node)) {
+      // Then check if we're lowering a tensor list
+      ops = LowerTensorList(node);
+    } else {
+      // Then fall back to legacy lowering code, which should be gradually
+      // removed
+      ops = LowerNonCodegenOps(node);
     }
-    throw std::runtime_error(
-        "Expected torch::lazy::TsNode but could not dynamic cast");
+
+    if (ops.empty()) {
+      return false;
+    }
+    CHECK_EQ(node->num_outputs(), ops.size());
+    for (size_t i = 0; i < ops.size(); ++i) {
+      loctx()->AssignOutputOp(torch::lazy::Output(node, i), ops[i]);
+    }
+    return true;
+  }
+
+  TSOpVector LowerTensorList(const torch::lazy::Node* node) const {
+    std::vector<torch::jit::Value*> tensor_list;
+    CHECK(!node->operands().empty());
+    for (const torch::lazy::Output& operand : node->operands()) {
+      tensor_list.emplace_back(loctx_->GetOutputOp(operand));
+    }
+    auto graph = function_->graph();
+    auto listnode = graph->insertNode(graph->createList(tensor_list[0]->type(), tensor_list));
+    return {listnode->output()};
   }
 
   // TODO(whc) this is for legacy/non-codegen Ops, and after moving most ops
@@ -96,12 +110,12 @@ class TSNodeLowering : public TSNodeLoweringInterface {
     }
     if (node->op().op == at::aten::native_batch_norm) {
       return LowerBatchNorm(
-          torch::lazy::NodeCast<TSNativeBatchNormForward>(
+          torch::lazy::NodeCast<NativeBatchNormForward>(
               node, torch::lazy::OpKind(at::aten::native_batch_norm)));
     }
     if (node->op().op == at::aten::native_batch_norm_backward) {
       return LowerBatchNormBackward(
-          torch::lazy::NodeCast<TSNativeBatchNormBackward>(
+          torch::lazy::NodeCast<NativeBatchNormBackward>(
               node, torch::lazy::OpKind(at::aten::native_batch_norm_backward)));
     }
     if (node->op().op == at::aten::expand) {
@@ -174,6 +188,7 @@ class TSNodeLowering : public TSNodeLoweringInterface {
     return LowerTSBuiltin(function_, sym, arguments, kwarguments);
   }
 
+
   TSOpVector LowerAsStrided(const torch::lazy::AsStrided* node) {
     std::vector<torch::jit::NamedValue> arguments;
     arguments.emplace_back(loctx()->GetOutputOp(node->operand(0)));
@@ -206,7 +221,7 @@ class TSNodeLowering : public TSNodeLoweringInterface {
     return {destination};
   }
 
-  TSOpVector LowerBatchNorm(const TSNativeBatchNormForward* node) {
+  TSOpVector LowerBatchNorm(const NativeBatchNormForward* node) {
     std::vector<torch::jit::NamedValue> arguments;
     for (size_t i = 0; i < 5; ++i) {
       arguments.emplace_back(loctx()->GetOutputOp(node->operand(i)));
@@ -217,7 +232,7 @@ class TSNodeLowering : public TSNodeLoweringInterface {
     return LowerBuiltin(node, arguments);
   }
 
-  TSOpVector LowerBatchNormBackward(const TSNativeBatchNormBackward* node) {
+  TSOpVector LowerBatchNormBackward(const NativeBatchNormBackward* node) {
     std::vector<torch::jit::NamedValue> arguments;
     for (size_t i = 0; i < 3; ++i) {
       arguments.emplace_back(loctx()->GetOutputOp(node->operand(i)));
@@ -448,6 +463,7 @@ TSOpVector LowerTSBuiltin(
   }
   return {sv->getValue()};
 }
+
 
 }  // namespace lazy
 }  // namespace torch

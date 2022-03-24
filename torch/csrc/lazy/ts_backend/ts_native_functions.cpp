@@ -3,16 +3,16 @@
 #include <ATen/MetaFunctions.h>
 #include <ATen/native/BinaryOps.h>
 #include <ATen/native/CPUFallback.h>
+#include <torch/csrc/lazy/backend/config.h>
 #include <torch/csrc/lazy/core/helpers.h>
 #include <torch/csrc/lazy/core/metrics.h>
 #include <torch/csrc/lazy/core/shape_inference.h>
+#include <torch/csrc/lazy/core/tensor_aten_ops.h>
 #include <torch/csrc/lazy/core/tensor_util.h>
 #include <torch/csrc/lazy/core/view_ops/as_strided.h>
 #include <torch/csrc/lazy/core/tensor_impl.h>
 #include <torch/csrc/lazy/generated/LazyNativeFunctions.h>
-#include <torch/csrc/lazy/ts_backend/config.h>
 #include <torch/csrc/lazy/ts_backend/ts_eager_fallback.h>
-#include <torch/csrc/lazy/ts_backend/tensor_aten_ops.h>
 #include <torch/csrc/lazy/ts_backend/ts_autograd_functions.h>
 #include <torch/csrc/lazy/ts_backend/ops/random_ops.h>
 #include <torch/csrc/lazy/ts_backend/ops/to_copy.h>
@@ -93,7 +93,7 @@ at::Tensor LazyNativeFunctions::_copy_from(const at::Tensor& self,
   auto self_tensor = torch::lazy::TryGetLtcTensor(self);
   if (!self_tensor) {
     // providing a new 'eager' value (self) for an existing lazy tensor (dst)
-    static bool sync_update = FLAGS_torch_lazy_ts_tensor_update_sync;
+    static bool sync_update = FLAGS_torch_lazy_tensors_tensor_update_sync;
     CHECK(dst_tensor);
     dst_tensor->UpdateFromTensor(self, /*sync=*/sync_update);
   } else if (!dst_tensor) {
@@ -328,7 +328,7 @@ LazyNativeFunctions::native_batch_norm(
       GetOrCreateLtcTensor(running_mean, device);
   auto running_var_tensor =
       GetOrCreateLtcTensor(running_var, device);
-  auto outputs = ts_native_batch_norm(
+  auto outputs = torch::lazy::native_batch_norm(
       torch::lazy::TryGetLtcTensor(input), GetOrCreateLtcTensor(weight, device),
       GetOrCreateLtcTensor(bias, device), running_mean_tensor,
       running_var_tensor, training, momentum, eps);
@@ -352,7 +352,7 @@ LazyNativeFunctions::native_batch_norm_backward(
   torch::lazy::LazyTensorPtr null_tensor;
   bool running_stats = running_mean && running_mean->defined();
   CHECK_EQ(running_var && running_var->defined(), running_stats);
-  auto gradients = ts_native_batch_norm_backward(
+  auto gradients = torch::lazy::native_batch_norm_backward(
       torch::lazy::TryGetLtcTensor(grad_out), torch::lazy::TryGetLtcTensor(input),
       GetOrCreateLtcTensor(weight, device),
       running_stats ? GetOrCreateLtcTensor(running_mean, device)

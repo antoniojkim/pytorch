@@ -1,11 +1,25 @@
 #include <torch/csrc/lazy/backend/backend_interface.h>
+#include <torch/csrc/lazy/backend/config.h>
 #include <torch/csrc/lazy/core/cache.h>
 #include <torch/csrc/lazy/core/config.h>
+#include <torch/csrc/lazy/core/cache.h>
+#include <torch/csrc/lazy/core/debug_util.h>
 #include <torch/csrc/lazy/core/ir.h>
 #include <torch/csrc/lazy/core/ir_metadata.h>
 
 // Enables caching on for dynamic shapes (aka disable hash on shapes)
 C10_DEFINE_bool(ltc_enable_dynamic_shapes, false, "Whether dynamic shape is enabled");
+
+namespace {
+  std::string GetFirstUserFrameInPythonIfEnabled() {
+    static const auto LTC_ENABLE_SOURCE_INFO = std::getenv("LTC_ENABLE_SOURCE_INFO");
+    if (!LTC_ENABLE_SOURCE_INFO) {
+      return {};
+    }
+
+    return torch::lazy::GetFirstUserFrameInPython();
+  }
+}
 
 namespace torch {
 namespace lazy {
@@ -92,6 +106,11 @@ Node::~Node() = default;
 c10::ArrayRef<Shape> Node::shapes() const { return shapes_; }
 
 // Retrieves the shape of the output at a given index.
+void Node::SetShapeDeferred(
+    const std::function<Shape()>& shape_fn) {
+  shapes_.push_back(GetOpShape(shape_fn));
+}
+
 const Shape& Node::shape(size_t output_index) const {
   return shapes_.at(output_index);
 }
@@ -123,6 +142,32 @@ const Output& Node::operand(size_t i) const {
   return operands_as_outputs_.at(i);
 }
 
+using ShapeCache = Cache<hash_t, Shape, HashReducer>;
+
+ShapeCache* GetShapeCache() {
+  static ShapeCache* cache = new ShapeCache(FLAGS_torch_lazy_tensors_shape_cache_size);
+  return cache;
+}
+
+Shape Node::GetOpShape(
+    const std::function<Shape()>& shape_fn) const {
+  auto hash = hash_with_sizes();
+  ShapeCache* shape_cache = GetShapeCache();
+  auto shape = shape_cache->Get(hash);
+  if (shape == nullptr) {
+    shape = shape_cache->Add(hash,
+                             std::make_shared<Shape>(shape_fn()));
+  }
+  return *shape;
+}
+
+void Node::AddOperand(NodePtr node, size_t index) {
+  CHECK_LT(index, node->num_outputs());
+  operands_.push_back(std::move(node));
+  operands_as_outputs_.emplace_back(operands_.back().get(), index);
+}
+
+
 std::string Node::ToString() const {
   std::stringstream ss;
   ss << shapes() << " " << op();
@@ -134,12 +179,6 @@ std::string Node::ToString() const {
   }
   EmitShortFrameInfo(ss, metadata().frame_info);
   return ss.str();
-}
-
-void Node::AddOperand(NodePtr node, size_t index) {
-  CHECK_LT(index, node->num_outputs());
-  operands_.push_back(std::move(node));
-  operands_as_outputs_.emplace_back(operands_.back().get(), index);
 }
 
 
