@@ -341,7 +341,7 @@ class NonNativeLazyIrSchema(LazyIrSchema):
 
         self.generator_arg = None
         self.is_non_native = True
-        self.is_lowerable = False
+        self.is_lowerable = True
 
     def parse_arg(self, arg):
         cpp_type, name = arg.rsplit(" ", 1)
